@@ -20,11 +20,15 @@
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/registration/icp.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #include <tf/LinearMath/Quaternion.h>
 #include <tf/LinearMath/Vector3.h>
 #include <nav_msgs/Path.h>
+
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
 
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
@@ -46,36 +50,91 @@ std::mutex prevPclMutex;
 std::mutex poseMutex;
 bool sysInit = false;
 
+using namespace message_filters;
+
 class ObstacleDetection
 {
 public:
     ObstacleDetection() {
 
-        subPose = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("poseupdate", 100, &ObstacleDetection::poseHandler,this); 
+        subPose = nh.subscribe<geometry_msgs::PoseStamped>("/slam_out_pose", 100, &ObstacleDetection::poseHandler,this); 
         subdepthCloud = nh.subscribe<sensor_msgs::PointCloud2>("/camera/depth/points", 100, &ObstacleDetection::pointCloudHandler,this); 
-        //subtrajectory = nh.subscribe<nav_msgs::Path>("/trajectory", 100, &ObstacleDetection::trajectoryHandler,this); 
+        
         pubObstacleCloud = nh.advertise<sensor_msgs::PointCloud2>("obstacle_cloud", 100);
     };
 
-    void trajectoryHandler(const nav_msgs::Path::ConstPtr &pathMsg) {
-        std::cout << "path handler called" << std::endl;
-    }
 
-    void poseHandler(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &poseMsg) {
-        std::cout << "pose handler called" << std::endl;
+    void poseHandler(const geometry_msgs::PoseStamped::ConstPtr &poseMsg) {
+        std::cout << "****pose handler called" << std::endl;
         read_pose = true;
         poseMutex.lock();
         //estimatedPose.header.frame_id = poseMsg->header;
-        estimatedPose.pose.position.x = poseMsg->pose.pose.position.x;
-        estimatedPose.pose.position.y = poseMsg->pose.pose.position.y;
-        estimatedPose.pose.position.z = poseMsg->pose.pose.position.z;
-        estimatedPose.pose.orientation.x = poseMsg->pose.pose.orientation.x;
-        estimatedPose.pose.orientation.y = poseMsg->pose.pose.orientation.y;
-        estimatedPose.pose.orientation.z = poseMsg->pose.pose.orientation.z;
-        estimatedPose.pose.orientation.w = poseMsg->pose.pose.orientation.w;
+        estimatedPose.pose.position.x = poseMsg->pose.position.x;
+        estimatedPose.pose.position.y = poseMsg->pose.position.y;
+        //estimatedPose.pose.position.z = poseMsg->pose.position.z;
+        estimatedPose.pose.position.z = 2;
+        // estimatedPose.pose.orientation.x = poseMsg->pose.orientation.x;
+        // estimatedPose.pose.orientation.y = poseMsg->pose.orientation.y;
+        estimatedPose.pose.orientation.x = 0;
+        estimatedPose.pose.orientation.y = 0;
+        estimatedPose.pose.orientation.z = poseMsg->pose.orientation.z;
+        estimatedPose.pose.orientation.w = poseMsg->pose.orientation.w;
         poseMutex.unlock();
     }
 
+    void pointCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &depthCloudMsg) {
+        std::cout << "pointcloud handler called" << std::endl;
+            
+        // change data format
+        PointCloudPtr depthCloudIn (new PointCloud);
+        PointCloudPtr depthCloudInMapCoord (new PointCloud);
+        PointCloudPtr depthCloudInBaseCoord (new PointCloud);
+        pcl::fromROSMsg(*depthCloudMsg, *depthCloudIn);
+        std::vector<int> indices;
+        
+        pcl::removeNaNFromPointCloud(*depthCloudIn, *depthCloudIn, indices);
+        this->removeClosedPointCloud(*depthCloudIn, *depthCloudIn, MINIMUM_RANGE, MAXIMUM_RANGE); // -> remove outboundary depth
+
+        this->transformToMap(*depthCloudIn, *depthCloudInMapCoord); // initialized according to the odometry
+        if (!depthCloudInMapCoord->empty()){   
+            if (!sysInit)
+            {
+                prevPointCloud = depthCloudInMapCoord;  
+                // this->transformToBase(*depthCloudInMapCoord, *depthCloudInBaseCoord);    
+                for (int i=0; i<depthCloudInMapCoord->size(); i++) {
+                    pointCloudStack->push_back((*depthCloudInMapCoord)[i]);        
+                }      
+                sysInit = true;
+                return;
+            }
+            else {
+                // TODO: OPTIMIZATION
+                obstacleMutex.lock();
+                //this->transformToBase(*depthCloudInMapCoord, *depthCloudInBaseCoord); 
+                for (int i=0; i<depthCloudInMapCoord->size(); i++) {
+                    pointCloudStack->push_back((*depthCloudInMapCoord)[i]);        
+                }
+                obstacleMutex.unlock();
+                prevPclMutex.lock();
+                prevPointCloud = depthCloudInMapCoord;        
+                prevPclMutex.unlock();
+                
+                //} 
+                // else 
+                // {
+                //     emptyCache();
+                //     return;
+                // }
+            }
+        }
+        if (read_pose) 
+        {
+            sensor_msgs::PointCloud2 obstacle_cloud;
+            pcl::toROSMsg(*pointCloudStack, obstacle_cloud);
+            obstacle_cloud.header.frame_id = "/map";
+            pubObstacleCloud.publish(obstacle_cloud);
+        }
+    }
     void removeClosedPointCloud(const PointCloud &cloud_in,
                                 PointCloud &cloud_out, float min_thres, float max_thres)
     {
@@ -136,104 +195,38 @@ public:
             cloud_out.push_back(po);
         }    
     }
-    void transformToBase(const PointCloud &cloud_in, PointCloud &cloud_out) 
-    {
-        std::cout << "transform to base_link" << std::endl;
-        poseMutex.lock();
-        geometry_msgs::Point pos = estimatedPose.pose.position;
-        geometry_msgs::Quaternion ori = estimatedPose.pose.orientation;
-        poseMutex.unlock();
+    // void transformToBase(const PointCloud &cloud_in, PointCloud &cloud_out) 
+    // {
+    //     std::cout << "transform to base_link" << std::endl;
+    //     poseMutex.lock();
+    //     geometry_msgs::Point pos = estimatedPose.pose.position;
+    //     geometry_msgs::Quaternion ori = estimatedPose.pose.orientation;
+    //     poseMutex.unlock();
 
-        Eigen::Quaterniond q_w_curr(ori.x, ori.y, ori.z, ori.w);
-        Eigen::Vector3d t_w_curr(pos.x, pos.y, pos.z);
+    //     Eigen::Quaterniond q_w_curr(ori.x, ori.y, ori.z, ori.w);
+    //     Eigen::Vector3d t_w_curr(pos.x, pos.y, pos.z);
 
-        pcl::PointXYZ pi, po;
-        cloud_out.clear();
+    //     pcl::PointXYZ pi, po;
+    //     cloud_out.clear();
 
-        for (int i=0; i<cloud_in.size(); i++) {
-            pi = cloud_in[i];
-            Eigen::Vector3d point_curr(pi.x, pi.y, pi.z);
-            Eigen::Vector3d point_w = q_w_curr * point_curr + t_w_curr;
+    //     for (int i=0; i<cloud_in.size(); i++) {
+    //         pi = cloud_in[i];
+    //         Eigen::Vector3d point_curr(pi.x, pi.y, pi.z);
+    //         Eigen::Vector3d point_w = q_w_curr * point_curr + t_w_curr;
             
-            po.x = point_w.x();
-            po.y = point_w.y();
-            po.z = point_w.z();
-            //po.intensity = pi.intensity;
-            cloud_out.push_back(po);
-        }    
-    }
+    //         po.x = point_w.x();
+    //         po.y = point_w.y();
+    //         po.z = point_w.z();
+    //         //po.intensity = pi.intensity;
+    //         cloud_out.push_back(po);
+    //     }    
+    // }
     void emptyCache() {
         std::cout << "cache empty" << std::endl;
         sysInit = false;
         prevPointCloud->clear();
     }
 
-    void pointCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &depthCloudMsg) {
-        std::cout << "pointcloud handler called" << std::endl;
-            
-        // change data format
-        PointCloudPtr depthCloudIn (new PointCloud);
-        PointCloudPtr depthCloudInMapCoord (new PointCloud);
-        PointCloudPtr depthCloudInBaseCoord (new PointCloud);
-        pcl::fromROSMsg(*depthCloudMsg, *depthCloudIn);
-        std::vector<int> indices;
-        
-        pcl::removeNaNFromPointCloud(*depthCloudIn, *depthCloudIn, indices);
-        this->removeClosedPointCloud(*depthCloudIn, *depthCloudIn, MINIMUM_RANGE, MAXIMUM_RANGE); // -> remove outboundary depth
-            
-
-        this->transformToMap(*depthCloudIn, *depthCloudInMapCoord); // initialized according to the odometry
-        if (!depthCloudInMapCoord->empty()){   
-            if (!sysInit)
-            {
-                prevPointCloud = depthCloudInMapCoord;  
-                this->transformToBase(*depthCloudInMapCoord, *depthCloudInBaseCoord);    
-                for (int i=0; i<depthCloudInMapCoord->size(); i++) {
-                    pointCloudStack->push_back((*depthCloudInMapCoord)[i]);        
-                }      
-                sysInit = true;
-                return;
-            }
-
-            else {
-                // OPTIMIZATION //
-                pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-                icp.setInputSource(depthCloudInMapCoord);        
-                icp.setInputTarget(prevPointCloud);
-                icp.align(*depthCloudInMapCoord);
-                
-                std::cout << "has converged:" << icp.hasConverged() << " score: " <<
-                icp.getFitnessScore() << std::endl;
-                std::cout << icp.getFinalTransformation() << std::endl;
-        
-                //if (icp.hasConverged()) {
-                    
-                    obstacleMutex.lock();
-                    this->transformToBase(*depthCloudInMapCoord, *depthCloudInBaseCoord); 
-                    for (int i=0; i<depthCloudInMapCoord->size(); i++) {
-                        pointCloudStack->push_back((*depthCloudInBaseCoord)[i]);        
-                    }
-                    obstacleMutex.unlock();
-                    prevPclMutex.lock();
-                    prevPointCloud = depthCloudInMapCoord;        
-                    prevPclMutex.unlock();
-                    
-                //} 
-                // else 
-                // {
-                //     emptyCache();
-                //     return;
-                // }
-            }
-        }
-        if (read_pose) 
-        {
-            sensor_msgs::PointCloud2 obstacle_cloud;
-            pcl::toROSMsg(*pointCloudStack, obstacle_cloud);
-            obstacle_cloud.header.frame_id = "/base_link";
-            pubObstacleCloud.publish(obstacle_cloud);
-        }
-    }
     ~ObstacleDetection(){
     }
     private:
