@@ -18,11 +18,6 @@ include_directories(
 	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
 
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs roscpp std_msgs sensor_msgs tf pcl_conversions
-  DEPENDS EIGEN3 PCL
-  
-)
 
 ## Compile as C++14, supported in ROS Kinetic and newer
 # set_property(TARGET invz_player PROPERTY CXX_STANDARD 17)
