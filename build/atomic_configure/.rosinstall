@@ -1,2 +1,2 @@
 - setup-file:
-    local-name: /home/haeyeon/3dvision_project/obstacle_detection/build/devel/setup.sh
+    local-name: /xavier_ssd/obstacle_detecion/build/devel/setup.sh

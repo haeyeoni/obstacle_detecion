@@ -1,4 +1,4 @@
-# Install script for directory: /home/haeyeon/3dvision_project/obstacle_detection
+# Install script for directory: /xavier_ssd/obstacle_detecion
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -56,7 +56,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-file(INSTALL DESTINATION "/usr/local" TYPE PROGRAM FILES "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/_setup_util.py")
+file(INSTALL DESTINATION "/usr/local" TYPE PROGRAM FILES "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/_setup_util.py")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
@@ -68,7 +68,7 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-file(INSTALL DESTINATION "/usr/local" TYPE PROGRAM FILES "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/env.sh")
+file(INSTALL DESTINATION "/usr/local" TYPE PROGRAM FILES "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/env.sh")
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
@@ -81,8 +81,8 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
 file(INSTALL DESTINATION "/usr/local" TYPE FILE FILES
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/setup.bash"
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/local_setup.bash"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/setup.bash"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/local_setup.bash"
     )
 endif()
 
@@ -96,8 +96,8 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
 file(INSTALL DESTINATION "/usr/local" TYPE FILE FILES
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/setup.sh"
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/local_setup.sh"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/setup.sh"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/local_setup.sh"
     )
 endif()
 
@@ -111,8 +111,8 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
 file(INSTALL DESTINATION "/usr/local" TYPE FILE FILES
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/setup.zsh"
-    "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/local_setup.zsh"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/setup.zsh"
+    "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/local_setup.zsh"
     )
 endif()
 
@@ -125,12 +125,12 @@ if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-file(INSTALL DESTINATION "/usr/local" TYPE FILE FILES "/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/installspace/.rosinstall")
+file(INSTALL DESTINATION "/usr/local" TYPE FILE FILES "/xavier_ssd/obstacle_detecion/build/catkin_generated/installspace/.rosinstall")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/haeyeon/3dvision_project/obstacle_detection/build/gtest/cmake_install.cmake")
+  include("/xavier_ssd/obstacle_detecion/build/gtest/cmake_install.cmake")
 
 endif()
 
@@ -142,5 +142,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/haeyeon/3dvision_project/obstacle_detection/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/xavier_ssd/obstacle_detecion/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

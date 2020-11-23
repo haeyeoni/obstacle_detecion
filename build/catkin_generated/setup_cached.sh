@@ -7,9 +7,7 @@
 # new environment variables
 
 # modified environment variables
-export CMAKE_PREFIX_PATH="/home/haeyeon/3dvision_project/obstacle_detection/build/devel:$CMAKE_PREFIX_PATH"
-export LD_LIBRARY_PATH="/home/haeyeon/3dvision_project/obstacle_detection/build/devel/lib:$LD_LIBRARY_PATH"
-export PATH='/opt/ros/melodic/bin:/home/haeyeon/anaconda3/condabin:/usr/local/cuda-10.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'
-export PKG_CONFIG_PATH="/home/haeyeon/3dvision_project/obstacle_detection/build/devel/lib/pkgconfig:$PKG_CONFIG_PATH"
-export ROSLISP_PACKAGE_DIRECTORIES='/home/haeyeon/3dvision_project/obstacle_detection/build/devel/share/common-lisp'
-export ROS_PACKAGE_PATH="/home/haeyeon/3dvision_project/obstacle_detection:$ROS_PACKAGE_PATH"
+export CMAKE_PREFIX_PATH="/xavier_ssd/obstacle_detecion/build/devel:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH='/opt/ros/melodic/lib:/usr/local/cuda-10.2/lib64'
+export ROSLISP_PACKAGE_DIRECTORIES='/xavier_ssd/obstacle_detecion/build/devel/share/common-lisp'
+export ROS_PACKAGE_PATH="/xavier_ssd/obstacle_detecion:$ROS_PACKAGE_PATH"

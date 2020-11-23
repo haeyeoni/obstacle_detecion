@@ -43,10 +43,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/haeyeon/3dvision_project/obstacle_detection
+CMAKE_SOURCE_DIR = /xavier_ssd/obstacle_detecion
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/haeyeon/3dvision_project/obstacle_detection/build
+CMAKE_BINARY_DIR = /xavier_ssd/obstacle_detecion/build
 
 # Utility rule file for sensor_msgs_generate_messages_py.
 
@@ -67,6 +67,6 @@ CMakeFiles/sensor_msgs_generate_messages_py.dir/clean:
 .PHONY : CMakeFiles/sensor_msgs_generate_messages_py.dir/clean
 
 CMakeFiles/sensor_msgs_generate_messages_py.dir/depend:
-	cd /home/haeyeon/3dvision_project/obstacle_detection/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/haeyeon/3dvision_project/obstacle_detection /home/haeyeon/3dvision_project/obstacle_detection /home/haeyeon/3dvision_project/obstacle_detection/build /home/haeyeon/3dvision_project/obstacle_detection/build /home/haeyeon/3dvision_project/obstacle_detection/build/CMakeFiles/sensor_msgs_generate_messages_py.dir/DependInfo.cmake --color=$(COLOR)
+	cd /xavier_ssd/obstacle_detecion/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /xavier_ssd/obstacle_detecion /xavier_ssd/obstacle_detecion /xavier_ssd/obstacle_detecion/build /xavier_ssd/obstacle_detecion/build /xavier_ssd/obstacle_detecion/build/CMakeFiles/sensor_msgs_generate_messages_py.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : CMakeFiles/sensor_msgs_generate_messages_py.dir/depend
 

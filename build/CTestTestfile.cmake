@@ -1,6 +1,6 @@
 # CMake generated Testfile for 
-# Source directory: /home/haeyeon/3dvision_project/obstacle_detection
-# Build directory: /home/haeyeon/3dvision_project/obstacle_detection/build
+# Source directory: /xavier_ssd/obstacle_detecion
+# Build directory: /xavier_ssd/obstacle_detecion/build
 # 
 # This file includes the relevant testing commands required for 
 # testing this directory and lists subdirectories to be tested as well.

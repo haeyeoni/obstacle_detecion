@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/haeyeon/3dvision_project/obstacle_detection/build/gtest/googlemock/gtest/cmake_install.cmake")
+  include("/xavier_ssd/obstacle_detecion/build/gtest/googlemock/gtest/cmake_install.cmake")
 
 endif()
 

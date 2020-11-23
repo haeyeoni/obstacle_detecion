@@ -19,9 +19,9 @@ except ImportError:
             break
     from catkin.environment_cache import generate_environment_script
 
-code = generate_environment_script('/home/haeyeon/3dvision_project/obstacle_detection/build/devel/env.sh')
+code = generate_environment_script('/xavier_ssd/obstacle_detecion/build/devel/env.sh')
 
-output_filename = '/home/haeyeon/3dvision_project/obstacle_detection/build/catkin_generated/setup_cached.sh'
+output_filename = '/xavier_ssd/obstacle_detecion/build/catkin_generated/setup_cached.sh'
 with open(output_filename, 'w') as f:
     # print('Generate script for cached setup "%s"' % output_filename)
     f.write('\n'.join(code))
