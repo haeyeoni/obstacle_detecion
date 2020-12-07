@@ -14,13 +14,18 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(octomap REQUIRED)
+
+
+catkin_package( CATKIN_DEPENDS geometry_msgs sensor_msgs roscpp std_msgs tf pcl_conversions image_transport cv_bridge)
 
 include_directories(
   include
 	${catkin_INCLUDE_DIRS} 
 	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS})
+  	${OpenCV_INCLUDE_DIRS}
+	${OCTOMAP_INCLUDE_DIRS})
 
 
 ## Compile as C++14, supported in ROS Kinetic and newer
@@ -30,5 +35,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions( -march=native )
 
-add_executable(obstacleDetection main.cc)
-target_link_libraries(obstacleDetection ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+add_executable(obstacle_detection main.cc)
+target_link_libraries(obstacle_detection ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${OCTOMAP_LIBRARIES})

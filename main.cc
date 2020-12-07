@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 #include <ros/ros.h>
 #include <mutex>
 #include <vector>
@@ -16,8 +17,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/common/transforms.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 typedef pcl::PCLPointCloud2 PointCloud2;
@@ -39,34 +40,40 @@ class ObstacleDetection
 {
 public:
     ObstacleDetection(ros::NodeHandle nh, ros::NodeHandle local_nh) {
-	ROS_INFO("Class created");        
-	
 	local_nh.getParam("minimum_range", MINIMUM_RANGE);
 	local_nh.getParam("maximum_range", MAXIMUM_RANGE);
 	local_nh.getParam("voxel_size", VOXEL_SIZE);
-	ROS_INFO("maximum range: %f\n minimum range: %f \n voxel size: %f", MAXIMUM_RANGE, MINIMUM_RANGE, VOXEL_SIZE);
-
+	
         subPose = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/amcl_pose", 100, &ObstacleDetection::poseHandler,this); 
         subdepthCloud = nh.subscribe<sensor_msgs::PointCloud2>("/camera/depth/points", 100, &ObstacleDetection::pointCloudHandler,this);   
         pubObstacleCloud = nh.advertise<sensor_msgs::PointCloud2>("obstacle_cloud", 100);
     };
 
     void poseHandler(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &poseMsg) {
-	ROS_INFO("Pose handler called");        
 	read_pose = true;
-        poseMutex.lock();
+	double qw = poseMsg->pose.pose.orientation.w;
+	double qx = poseMsg->pose.pose.orientation.x;
+	double qy = poseMsg->pose.pose.orientation.y;
+	double qz = poseMsg->pose.pose.orientation.z;
+	
+	// yaw (z-axis rotation)
+	double siny_cosp = 2 * (qw * qz + qx * qy);
+	double cosy_cosp = 1 - 2 * (qy * qy + qz * qz);
+	double yaw = std::atan2(siny_cosp, cosy_cosp);
+
+	poseMutex.lock();
         estimatedPose.pose.pose.position.x = poseMsg->pose.pose.position.x;
         estimatedPose.pose.pose.position.y = poseMsg->pose.pose.position.y;
-        estimatedPose.pose.pose.position.z = 0;
-        estimatedPose.pose.pose.orientation.x = 0;
-        estimatedPose.pose.pose.orientation.y = 0;
-        estimatedPose.pose.pose.orientation.z = poseMsg->pose.pose.orientation.z;
-        estimatedPose.pose.pose.orientation.w = poseMsg->pose.pose.orientation.w;
+        estimatedPose.pose.pose.position.z = poseMsg->pose.pose.position.z;
+        estimatedPose.pose.pose.orientation.x = poseMsg->pose.pose.orientation.x; //0;
+        estimatedPose.pose.pose.orientation.y = poseMsg->pose.pose.orientation.y; //0;
+        estimatedPose.pose.pose.orientation.z = poseMsg->pose.pose.orientation.z; //sin(yaw * 0.5);
+        estimatedPose.pose.pose.orientation.w = poseMsg->pose.pose.orientation.w; //cos(yaw * 0.5);
+
         poseMutex.unlock();
     }
 
     void pointCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &depthCloudMsg) {
-        ROS_INFO("Point cloud handler called");            
         // change data format
         PointCloudPtr depthCloudIn (new PointCloud);
         PointCloudPtr depthCloudVoxelized (new PointCloud);
@@ -80,13 +87,10 @@ public:
         if (!depthCloudIn->empty()){   
             pcl::removeNaNFromPointCloud(*depthCloudIn, *depthCloudIn, indices);
             this->removeClosedPointCloud(*depthCloudIn, *depthCloudIn, MINIMUM_RANGE, MAXIMUM_RANGE); // -> remove outboundary depth
-            std::cout << "before voxelized cloud size:" <<depthCloudIn->size()<< std::endl;
             
             this->voxelize(depthCloudIn, depthCloudVoxelized, VOXEL_SIZE);
-            std::cout << "voxelized cloud size:" <<depthCloudVoxelized->size()<< std::endl;
             
             this->transformToMap(*depthCloudVoxelized, *depthCloudInMapCoord); // initialized according to the odometry
-            std::cout << "voxelized cloud size:" <<depthCloudVoxelized->size()<< std::endl;
             
             if (!sysInit)
             {
@@ -121,8 +125,6 @@ public:
 
     void voxelize(const PointCloudPtr cloud_in, PointCloudPtr cloud_out, float voxel_size)
     {
-	ROS_INFO("Voxelizing");        
-	
         static pcl::VoxelGrid<PointCloud2> voxel_filter;
 
         PointCloud2Ptr cloud (new PointCloud2());
@@ -173,28 +175,29 @@ public:
         geometry_msgs::Point pos = estimatedPose.pose.pose.position;
         geometry_msgs::Quaternion ori = estimatedPose.pose.pose.orientation;
         poseMutex.unlock();
+	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+	Eigen::Quaternionf q_w_curr (ori.w, ori.x, ori.y, ori.z);
+	Eigen::Matrix3f R(q_w_curr);
+	float cosine = R(0,0);
+	float sine = R(1,0);
 
-        Eigen::Quaterniond q_w_curr(ori.x, ori.y, ori.z, ori.w);
-        Eigen::Vector3d t_w_curr(pos.x, pos.y, pos.z);
-        pcl::PointXYZ pi, po;
-        cloud_out.clear();
-        std::cout<< pos.x <<','<< pos.y <<','<< pos.z <<std::endl;
-        for (int i=0; i<cloud_in.size(); i++) {
-            pi = cloud_in[i];
-            Eigen::Vector3d point_curr(pi.x, pi.y, pi.z);
-            Eigen::Vector3d point_w = q_w_curr * point_curr + t_w_curr;
-            
-            po.x = point_w.x();
-            po.y = point_w.y();
-            po.z = point_w.z();
-            cloud_out.push_back(po);
-        }    
+	transform(0,0) = sine; transform(0,1) = 0; transform(0,2)= cosine;
+	transform(1,0) = -cosine; transform(1,1) = 0; transform(1,2)= sine;
+	transform(2,0) = 0; transform(2,1) = -1; transform(2,2)= 0;
+	transform(0,3) = pos.x;
+        transform(1,3) = pos.y;
+        transform(2,3) = pos.z;
+
+        std::cout << "transform=" << std::endl << transform << std::endl;
+	
+	cloud_out.clear();
+	pcl::transformPointCloud(cloud_in, cloud_out, transform);
+   
     }
 
     ~ObstacleDetection(){
     }
     private:
-
         ros::Subscriber subPose;
         ros::Subscriber subdepthCloud;
         ros::Subscriber subtrajectory;
