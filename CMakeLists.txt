@@ -30,5 +30,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions( -march=native )
 
-add_executable(obstacleDetection main.cc main.h)
+add_executable(obstacleDetection main.cc)
 target_link_libraries(obstacleDetection ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
