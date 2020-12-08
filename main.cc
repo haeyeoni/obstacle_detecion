@@ -117,7 +117,7 @@ public:
             {
                 sensor_msgs::PointCloud2 obstacle_cloud;
                 pcl::toROSMsg(*pointCloudStack, obstacle_cloud);
-                obstacle_cloud.header.frame_id = "/map";
+                obstacle_cloud.header.frame_id = "map";
                 pubObstacleCloud.publish(obstacle_cloud);
             }
         }
@@ -187,8 +187,6 @@ public:
 	transform(0,3) = pos.x;
         transform(1,3) = pos.y;
         transform(2,3) = pos.z;
-
-        std::cout << "transform=" << std::endl << transform << std::endl;
 	
 	cloud_out.clear();
 	pcl::transformPointCloud(cloud_in, cloud_out, transform);

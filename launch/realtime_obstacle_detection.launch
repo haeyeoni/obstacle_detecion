@@ -1,6 +1,6 @@
 <launch>
 
-  <param name="use_sim_time" value="true"/>
+  <param name="use_sim_time" value="false"/>
 
   <arg name="rviz_config" default="$(find obstacle_detection)/launch/obstacle_view.rviz"/>  
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rviz_config)" />
@@ -18,15 +18,26 @@
   <include file="$(find depth_image_proc)/launch/pointcloud.launch">
   </include> 
 
+  <include file="$(find depth_image_proc)/launch/pointcloud.launch">
+  </include> 
+
   <include file="$(find amcl)/examples/amcl_diff.launch">
   </include>
 
-    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
-        <param name="resolution" value="0.05" />
-        <param name="pointcloud_min_z" value="-0.3"/>
-	<param name="pointcloud_max_z" value="0.1"/>
-	
-        <!-- data source to integrate (PointCloud2) -->
-        <remap from="cloud_in" to="/obstacle_cloud" />.
-    </node>
+  <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+    <remap from="cloud_in" to="/obstacle_cloud"/>
+    <remap from="scan" to="camera_scan"/>
+    <rosparam>     
+      transform_tolerance: 0.01
+      min_height: -1.0
+      max_height: 2.0
+      angle_increment: 0.0001 # M_PI/360.0
+      scan_time: 0.02
+      range_min: 0.0
+      range_max: 6.0
+      use_inf: true
+      concurrency_level: 1
+    </rosparam>
+  </node>
+
 </launch>
