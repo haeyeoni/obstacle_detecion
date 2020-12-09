@@ -12,13 +12,21 @@
   <node pkg="tf" type="static_transform_publisher" name="base_to_laser" args="0 0 0 0 0 0 base_link laser 100" />
   
   <node pkg="obstacle_detection" type="obstacle_detection" name="obstacle_detection" output="screen">
-    <param name="minimum_range" value="0.4"  /> 
-    <param name="maximum_range" value="2"  /> 
+    <param name="minimum_range" value="0.3"  /> 
+    <param name="maximum_range" value="3"  /> 
     <param name="minimum_height" value="$(arg min_height)" />
     <param name="maximum_height" value="$(arg max_height)"  />  
-    <param name="voxel_size" value="0.5"  /> 
-    <param name="max_iteration" value="0"  /> <!--icp parameter--> 
+    <param name="voxel_size" value="0.1"  /> 
+    <param name="max_iteration" value="0"  /> 
   </node>
+
+    <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+      <remap from="cloud_in" to="/obstacle_cloud"/>
+      <remap from="scan" to="/camera_scan" />
+      <rosparam>
+        target_frame: amcl_link
+      </rosparam>
+    </node>
 
   <include file="$(find depth_image_proc)/launch/pointcloud.launch">
   </include> 
@@ -30,6 +38,7 @@
         <param name="resolution" value="0.1" />
 	<param name="pointcloud_min_z" value="$(arg min_height)" />
 	<param name="pointcloud_max_z" value="$(arg max_height)" />
+	<param name="sensor_model/max_range" value="3" />
 	<remap from="cloud_in" to="/obstacle_cloud" />
     </node>
 </launch>

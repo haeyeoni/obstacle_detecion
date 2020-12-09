@@ -23,6 +23,9 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
 
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 typedef pcl::PCLPointCloud2 PointCloud2;
@@ -39,7 +42,6 @@ PointCloudPtr prevPointCloud (new PointCloud);
 std::mutex obstacleMutex;
 std::mutex prevPclMutex;
 std::mutex poseMutex;
-std::mutex tfMutex;
 tf::StampedTransform tf_base_to_map;
 
 class ObstacleDetection
@@ -76,6 +78,26 @@ public:
     estimatedPose.pose.pose.orientation.w = poseMsg->pose.pose.orientation.w; //cos(yaw * 0.5);
 		
     poseMutex.unlock();
+
+	// broadcast the tf
+ static tf2_ros::TransformBroadcaster br;
+	//std::cout<< "broadcasting tf"<<std::endl;
+  
+  	geometry_msgs::TransformStamped transformStamped;
+  
+  transformStamped.header.stamp = ros::Time::now();
+  transformStamped.header.frame_id = "map";
+  transformStamped.child_frame_id = "amcl_link";
+  transformStamped.transform.translation.x = poseMsg->pose.pose.position.x;
+  transformStamped.transform.translation.y = poseMsg->pose.pose.position.y;
+  transformStamped.transform.translation.z = poseMsg->pose.pose.position.z;
+  transformStamped.transform.rotation.x =poseMsg->pose.pose.orientation.x;
+  transformStamped.transform.rotation.y = poseMsg->pose.pose.orientation.y;
+  transformStamped.transform.rotation.z = poseMsg->pose.pose.orientation.z;
+  transformStamped.transform.rotation.w = poseMsg->pose.pose.orientation.w;
+
+  br.sendTransform(transformStamped);
+
     }
 
     void pointCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &depthCloudMsg) {
@@ -105,7 +127,6 @@ public:
 			        return;
 		        }
 		        else {
-
 					pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
 					icp.setInputSource(depthCloudInMapCoord);
 					icp.setInputTarget(prevPointCloud);
@@ -128,7 +149,7 @@ public:
             {
                 sensor_msgs::PointCloud2 obstacle_cloud;
                 pcl::toROSMsg(*pointCloudStack, obstacle_cloud);
-                obstacle_cloud.header.frame_id = "map";
+                obstacle_cloud.header.frame_id = "amcl_link";//"base_link";
                 pubObstacleCloud.publish(obstacle_cloud);
             }
         }
@@ -179,29 +200,35 @@ public:
 
     void transformToMap(const PointCloud &cloud_in, PointCloud &cloud_out) 
     {
-		// 1. modify axis
+		// Rotation matrix  
 		Eigen::Matrix3f rot_x_90;
 		Eigen::Matrix3f rot_y_90;
 		Eigen::Matrix3f rot_z_90; 
 		rot_x_90 << 1,0,0, 0,0,-1, 0,1,0;
 		rot_y_90 << 0,0,-1, 0,1,0, 1,0,0;
 		rot_z_90 << 0,-1,0, 1,0,0, 0,0,1; 
-	
+		/*// 1. base to map
+
+		tf::Vector3 translation1 = tf_base_to_map.getOrigin();
+		tf::Quaternion rotation1 = tf_base_to_map.getRotation();
+		Eigen::Quaternionf quater1 (rotation1.w(), rotation1.x(), rotation1.y(), rotation1.z());
+		Eigen::Matrix3f rot_from_quat1 = quater1.toRotationMatrix();
+
 		// 2. move to amcl pose (map -> amcl)
         poseMutex.lock();
         geometry_msgs::Point translation2 = estimatedPose.pose.pose.position;
         geometry_msgs::Quaternion rotation2 = estimatedPose.pose.pose.orientation;
         poseMutex.unlock();
 		Eigen::Quaternionf quater2 (rotation2.w, rotation2.x, rotation2.y, rotation2.z);
-		Eigen::Matrix3f rot_from_quat2 = quater2.toRotationMatrix();
+		Eigen::Matrix3f rot_from_quat2 = quater2.toRotationMatrix();*/
 		
 		// calculate total transform and rotation
 		Eigen::Matrix4f total_transform = Eigen::Matrix4f::Identity();
-		Eigen::Matrix3f total_rotation = rot_z_90 * rot_x_90 * rot_z_90 *rot_z_90 * rot_from_quat2;
+		Eigen::Matrix3f total_rotation = rot_z_90*rot_x_90*rot_z_90*rot_z_90;//*rot_from_quat1 * rot_from_quat2;
 		
-		total_transform<<total_rotation(0,0), total_rotation(0,1), total_rotation(0,2), translation2.x,
-						total_rotation(1,0), total_rotation(1,1), total_rotation(1,2), translation2.y,
-						total_rotation(2,0), total_rotation(2,1), total_rotation(2,2), translation2.z,
+		total_transform<<total_rotation(0,0), total_rotation(0,1), total_rotation(0,2),0,
+						total_rotation(1,0), total_rotation(1,1), total_rotation(1,2), 0,
+						total_rotation(2,0), total_rotation(2,1), total_rotation(2,2), 0,
 						0,0,0,1;
 		pcl::transformPointCloud(cloud_in, cloud_out, total_transform);			   
     }
@@ -220,7 +247,6 @@ public:
 		float MAXIMUM_HEIGHT = 0.5f;
 		float VOXEL_SIZE = 0.05f;
 		float MAX_ITERATION = 10;
-
 };
 
 
@@ -232,6 +258,7 @@ int main(int argc, char **argv)
     ObstacleDetection ObstacleDetection(nh, local_nh);
     
 	tf::TransformListener listener;
+  	ros::Rate rate(10.0);
     while(ros::ok()) {
         ros::spinOnce();
 		/*try{
@@ -239,7 +266,7 @@ int main(int argc, char **argv)
     	}
     	catch (tf::TransformException ex){
       		ROS_ERROR("%s",ex.what());
-      		ros::Duration(1.0).sleep();
+      		ros::Duration(2.0).sleep();
     	}*/
     }
     return 0;
