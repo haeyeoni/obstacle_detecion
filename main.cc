@@ -1,10 +1,6 @@
 
 // This is created by Haeyeon Gim 2020.11.3 ...
 //
-// 1. SUBSCRIBE POINTCLOUD TOPIC (CREATED BY DEPTH IMAGE) <- published by depth_image_proc (http://wiki.ros.org/depth_image_proc)
-// 2. SUBSCRIBE ODOMETRY TOPIC
-// //3. OPTIMIZATION INITIALIZ WITH ESTIMATED ODOMETRY
-// 4. RECONSTRUCT THE DEPTH POINT
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,7 +17,6 @@
 #include <pcl/registration/icp.h>
 #include <pcl/filters/conditional_removal.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <tf/transform_listener.h>
 #include <tf/transform_datatypes.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -36,13 +31,10 @@ typedef PointCloud2::Ptr PointCloud2Ptr;
 // variables
 bool read_pose = false;
 bool sysInit = false;
-geometry_msgs::PoseWithCovarianceStamped estimatedPose;
 PointCloudPtr pointCloudStack (new PointCloud); 
 PointCloudPtr prevPointCloud (new PointCloud);
 std::mutex obstacleMutex;
 std::mutex prevPclMutex;
-std::mutex poseMutex;
-tf::StampedTransform tf_base_to_map;
 
 class ObstacleDetection
 {
@@ -54,7 +46,7 @@ public:
 		local_nh.getParam("maximum_height", MAXIMUM_HEIGHT);
 				
 		local_nh.getParam("voxel_size", VOXEL_SIZE);
-		local_nh.getParam("is_icp", IS_ICP);
+		local_nh.getParam("use_icp", USE_ICP);
 		local_nh.getParam("max_iteration", MAX_ITERATION);
 	
         subPose = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/amcl_pose", 100, &ObstacleDetection::poseHandler,this); 
@@ -64,40 +56,26 @@ public:
     };
 
     void poseHandler(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &poseMsg) {
-	read_pose = true;
-	double qw = poseMsg->pose.pose.orientation.w;
-	double qx = poseMsg->pose.pose.orientation.x;
-	double qy = poseMsg->pose.pose.orientation.y;
-	double qz = poseMsg->pose.pose.orientation.z;
-	poseMutex.lock();
-    estimatedPose.pose.pose.position.x = poseMsg->pose.pose.position.x;
-    estimatedPose.pose.pose.position.y = poseMsg->pose.pose.position.y;
-    estimatedPose.pose.pose.position.z = poseMsg->pose.pose.position.z;
-    estimatedPose.pose.pose.orientation.x = poseMsg->pose.pose.orientation.x; //0;
-    estimatedPose.pose.pose.orientation.y = poseMsg->pose.pose.orientation.y; //0;
-    estimatedPose.pose.pose.orientation.z = poseMsg->pose.pose.orientation.z; //sin(yaw * 0.5);
-    estimatedPose.pose.pose.orientation.w = poseMsg->pose.pose.orientation.w; //cos(yaw * 0.5);
+		read_pose = true;
 		
-    poseMutex.unlock();
+		// broadcast the tf
+		static tf2_ros::TransformBroadcaster br;
+		//std::cout<< "broadcasting tf"<<std::endl;
+		
+		geometry_msgs::TransformStamped transformStamped;
+		
+		transformStamped.header.stamp = ros::Time::now();
+		transformStamped.header.frame_id = "map";
+		transformStamped.child_frame_id = "amcl_link";
+		transformStamped.transform.translation.x = poseMsg->pose.pose.position.x;
+		transformStamped.transform.translation.y = poseMsg->pose.pose.position.y;
+		transformStamped.transform.translation.z = poseMsg->pose.pose.position.z;
+		transformStamped.transform.rotation.x =poseMsg->pose.pose.orientation.x;
+		transformStamped.transform.rotation.y = poseMsg->pose.pose.orientation.y;
+		transformStamped.transform.rotation.z = poseMsg->pose.pose.orientation.z;
+		transformStamped.transform.rotation.w = poseMsg->pose.pose.orientation.w;
 
-	// broadcast the tf
- static tf2_ros::TransformBroadcaster br;
-	//std::cout<< "broadcasting tf"<<std::endl;
-  
-  	geometry_msgs::TransformStamped transformStamped;
-  
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "map";
-  transformStamped.child_frame_id = "amcl_link";
-  transformStamped.transform.translation.x = poseMsg->pose.pose.position.x;
-  transformStamped.transform.translation.y = poseMsg->pose.pose.position.y;
-  transformStamped.transform.translation.z = poseMsg->pose.pose.position.z;
-  transformStamped.transform.rotation.x =poseMsg->pose.pose.orientation.x;
-  transformStamped.transform.rotation.y = poseMsg->pose.pose.orientation.y;
-  transformStamped.transform.rotation.z = poseMsg->pose.pose.orientation.z;
-  transformStamped.transform.rotation.w = poseMsg->pose.pose.orientation.w;
-
-  br.sendTransform(transformStamped);
+		br.sendTransform(transformStamped);
 
     }
 
@@ -110,12 +88,11 @@ public:
         pcl::fromROSMsg(*depthCloudMsg, *depthCloudIn);
         std::vector<int> indices;
         
-        
         if (!depthCloudIn->empty()){   
-            pcl::removeNaNFromPointCloud(*depthCloudIn, *depthCloudIn, indices);
+            pcl::removeNaNFromPointCloud(*depthCloudIn, *depthCloudIn, indices); // remove nan points
             this->removeClosedPointCloud(depthCloudIn, depthCloudIn); // -> remove outboundary depth         
-            this->voxelize(depthCloudIn, depthCloudVoxelized, VOXEL_SIZE);
-		    this->transformToMap(*depthCloudVoxelized, *depthCloudInMapCoord); // initialized according to the odometry
+            this->voxelize(depthCloudIn, depthCloudVoxelized, VOXEL_SIZE); // voxelize pointcloud
+		    this->transformToMap(*depthCloudVoxelized, *depthCloudInMapCoord); // move pointcloud to the map coords
             if (!depthCloudInMapCoord->empty()){
 		        if (!sysInit)
 		        {					
@@ -128,7 +105,7 @@ public:
 			        return;
 		        }
 		        else {
-					if(IS_ICP) {
+					if(USE_ICP) {
 						pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
 						icp.setInputSource(depthCloudInMapCoord);
 						icp.setInputTarget(prevPointCloud);
@@ -209,22 +186,6 @@ public:
 		rot_x_90 << 1,0,0, 0,0,-1, 0,1,0;
 		rot_y_90 << 0,0,-1, 0,1,0, 1,0,0;
 		rot_z_90 << 0,-1,0, 1,0,0, 0,0,1; 
-		/*// 1. base to map
-
-		tf::Vector3 translation1 = tf_base_to_map.getOrigin();
-		tf::Quaternion rotation1 = tf_base_to_map.getRotation();
-		Eigen::Quaternionf quater1 (rotation1.w(), rotation1.x(), rotation1.y(), rotation1.z());
-		Eigen::Matrix3f rot_from_quat1 = quater1.toRotationMatrix();
-
-		// 2. move to amcl pose (map -> amcl)
-        poseMutex.lock();
-        geometry_msgs::Point translation2 = estimatedPose.pose.pose.position;
-        geometry_msgs::Quaternion rotation2 = estimatedPose.pose.pose.orientation;
-        poseMutex.unlock();
-		Eigen::Quaternionf quater2 (rotation2.w, rotation2.x, rotation2.y, rotation2.z);
-		Eigen::Matrix3f rot_from_quat2 = quater2.toRotationMatrix();*/
-		
-		// calculate total transform and rotation
 		Eigen::Matrix4f total_transform = Eigen::Matrix4f::Identity();
 		Eigen::Matrix3f total_rotation = rot_z_90*rot_x_90*rot_z_90*rot_z_90;//*rot_from_quat1 * rot_from_quat2;
 		
@@ -237,18 +198,19 @@ public:
 
     ~ObstacleDetection(){
     }
+
     private:
-        ros::Subscriber subPose;
-        ros::Subscriber subdepthCloud;
-        ros::Subscriber subtrajectory;
-        ros::Publisher pubObstacleCloud;
+		ros::Subscriber subPose;
+		ros::Subscriber subdepthCloud;
+		ros::Subscriber subtrajectory;
+		ros::Publisher pubObstacleCloud;
 		// Parameters
 		float MINIMUM_RANGE = 0.0f;
 		float MAXIMUM_RANGE = 2.0f;
 		float MINIMUM_HEIGHT = -0.5f;
 		float MAXIMUM_HEIGHT = 0.5f;
 		float VOXEL_SIZE = 0.05f;
-		bool IS_ICP = true;
+		bool USE_ICP = true;
 		float MAX_ITERATION = 10;
 };
 
@@ -264,13 +226,6 @@ int main(int argc, char **argv)
   	ros::Rate rate(10.0);
     while(ros::ok()) {
         ros::spinOnce();
-		/*try{
-      		listener.lookupTransform("/base_link", "/map", ros::Time(0), tf_base_to_map);
-    	}
-    	catch (tf::TransformException ex){
-      		ROS_ERROR("%s",ex.what());
-      		ros::Duration(2.0).sleep();
-    	}*/
     }
     return 0;
 }
