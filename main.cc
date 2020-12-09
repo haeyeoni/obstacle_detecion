@@ -54,6 +54,7 @@ public:
 		local_nh.getParam("maximum_height", MAXIMUM_HEIGHT);
 				
 		local_nh.getParam("voxel_size", VOXEL_SIZE);
+		local_nh.getParam("is_icp", IS_ICP);
 		local_nh.getParam("max_iteration", MAX_ITERATION);
 	
         subPose = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/amcl_pose", 100, &ObstacleDetection::poseHandler,this); 
@@ -127,12 +128,13 @@ public:
 			        return;
 		        }
 		        else {
-					pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-					icp.setInputSource(depthCloudInMapCoord);
-					icp.setInputTarget(prevPointCloud);
-					icp.setMaximumIterations(MAX_ITERATION);
-					icp.align(*depthCloudInMapCoord);
-		        
+					if(IS_ICP) {
+						pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+						icp.setInputSource(depthCloudInMapCoord);
+						icp.setInputTarget(prevPointCloud);
+						icp.setMaximumIterations(MAX_ITERATION);
+						icp.align(*depthCloudInMapCoord);
+		        	}
 		            obstacleMutex.lock();
 					(*pointCloudStack).clear(); //added
 					for (int i=0; i<depthCloudInMapCoord->size(); i++) {
@@ -246,6 +248,7 @@ public:
 		float MINIMUM_HEIGHT = -0.5f;
 		float MAXIMUM_HEIGHT = 0.5f;
 		float VOXEL_SIZE = 0.05f;
+		bool IS_ICP = true;
 		float MAX_ITERATION = 10;
 };
 

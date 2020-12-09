@@ -17,7 +17,8 @@
     <param name="minimum_height" value="$(arg min_height)" />
     <param name="maximum_height" value="$(arg max_height)"  />  
     <param name="voxel_size" value="0.1"  /> 
-    <param name="max_iteration" value="0"  /> 
+    <param name="is_icp" value="false"  /> 
+    <param name="max_iteration" value="2"  /> 
   </node>
 
     <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
